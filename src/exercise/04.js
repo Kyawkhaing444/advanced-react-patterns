@@ -12,10 +12,14 @@ function useToggle() {
   // `aria-pressed` and `onClick` properties.
   // 💰 {'aria-pressed': on, onClick: toggle}
 
+  function callAll(...fns){
+    return (...args) => fns.forEach(fn => fn?.(...args))
+  }
+
   function getTogglerProps({onClick, ...props}){
     return {
       'aria-pressed': on,
-      onClick: onClick ? onClick: toggle,
+      onClick: callAll(onClick, toggle),
       ...props
     }
   }
@@ -30,13 +34,12 @@ function App() {
       <Switch {...getTogglerProps({on})} />
       <hr />
       <button {...getTogglerProps({
-        'aria-label':"custom-button"
+        'aria-label':"custom-button",
+        onClick: () => console.info("button clicks"),
+        id: "custom-button-id"
       })}>
         {on ? 'on' : 'off'}
       </button>
-      {/* <button aria-label="custom-button" {...togglerProps} onClick={() => console.info("onButtonClick")}>
-        {on ? 'on' : 'off'}
-      </button> */}
     </div>
   )
 }
