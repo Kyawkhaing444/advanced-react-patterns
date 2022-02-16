@@ -26,6 +26,43 @@ function toggleReducer(state, {type, initialState}) {
   }
 }
 
+function useControlledSwitchWarning(controlPropValue, controlPropName, componentName) {
+  const onIsControlled = controlPropValue !== null;
+  const { current: onWasControlled } = React.useRef(onIsControlled);
+
+  React.useEffect(() => {
+    if(process.env.NODE_ENV !== 'production'){
+      warning(
+        !(onIsControlled && !onWasControlled),
+        `\`${componentName}\` is changing from uncontrolled to be controlled. Reach UI components should not switch from uncontrolled to controlled (or vice versa). Decide between using a controlled or uncontrolled \`${componentName}\` for the lifetime of the component. Check the \`${controlPropName}\` prop.`
+      );
+      warning(
+        !(!onIsControlled && onWasControlled),
+        `\`${componentName}\` is changing from controlled to be uncontrolled. Reach UI components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled \`${componentName}\` for the lifetime of the component. Check the \`${controlPropName}\` prop.`
+      );
+    }
+  }, [onIsControlled, onWasControlled, componentName, controlPropName])
+}
+
+function useOnChangeReadOnlyWarning(
+  controlPropValue,
+  controlPropName,
+  componentName,
+  hasOnChange
+){
+
+  const onIsControlled = controlPropValue !== undefined;
+
+  React.useEffect(() => {
+    if(process.env.NODE_ENV !== 'production'){
+      warning(
+        !(!hasOnChange && onIsControlled),
+        `An \`on\` prop was provided to useToggle without an \`onChange\` handler. This will render a read-only toggle. If you want it to be mutable, use \`initialOn\`. Otherwise, set either \`onChange\` or \`readOnly\`.`,
+      );
+    }
+  }, [hasOnChange, onIsControlled])
+}
+
 function useToggle({
   initialOn = false,
   reducer = toggleReducer,
@@ -39,19 +76,16 @@ function useToggle({
   const [state, dispatch] = React.useReducer(reducer, initialState)
   // 🐨 determine whether on is controlled and assign that to `onIsControlled`
   // 💰 `controlledOn != null`
-  const onIsControlled = controlledOn !== null;
+  const onIsControlled = controlledOn !== undefined;
   const hasOnChange = Boolean(onChange);
 
   // 🐨 Replace the next line with assigning `on` to `controlledOn` if
   // `onIsControlled`, otherwise, it should be `state.on`.
   const on = onIsControlled ? controlledOn: state.on
 
-  React.useEffect(() => {
-    warning(
-      !(!hasOnChange && onIsControlled),
-      `An \`on\` prop was provided to useToggle without an \`onChange\` handler. This will render a read-only toggle. If you want it to be mutable, use \`initialOn\`. Otherwise, set either \`onChange\` or \`readOnly\`.`,
-    );
-  }, [hasOnChange, onIsControlled])
+
+  useControlledSwitchWarning(controlledOn, 'on', 'useToggle');
+  useOnChangeReadOnlyWarning(controlledOn, 'on', 'useToggle', hasOnChange);
 
   // We want to call `onChange` any time we need to make a state change, but we
   // only want to call `dispatch` if `!onIsControlled` (otherwise we could get
@@ -78,9 +112,9 @@ function useToggle({
   // so keep that in mind when you call it! How could you avoid calling it if it's not passed?
   const dispatchWithOnChange = (action) => {
     if(!onIsControlled){
-      return dispatch(action);
+      dispatch(action);
     }
-    return onChange(reducer({...state, on}, action), action);
+    onChange?.(reducer({...state, on}, action), action);
   }
 
   // make these call `dispatchWithOnChange` instead
@@ -152,11 +186,7 @@ function App() {
       <hr />
       <div>
         <div>Uncontrolled Toggle:</div>
-        <Toggle
-          onChange={(...args) =>
-            console.info('Uncontrolled Toggle onChange', ...args)
-          }
-        />
+        <Toggle/>
       </div>
     </div>
   )
